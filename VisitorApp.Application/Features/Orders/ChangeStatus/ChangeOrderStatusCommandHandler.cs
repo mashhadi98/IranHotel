@@ -1,4 +1,5 @@
 using VisitorApp.Contract.Features.Orders.ChangeStatus;
+using VisitorApp.Domain.Common.Exceptions;
 using VisitorApp.Domain.Features.Orders.Entities;
 
 namespace VisitorApp.Application.Features.Orders.ChangeStatus;
@@ -24,6 +25,19 @@ public class ChangeOrderStatusCommandHandler(IRepository<Order> repository)
         if (order is null)
         {
             throw new KeyNotFoundException("سفارش یافت نشد");
+        }
+
+        var transitionAllowed = order.Status switch
+        {
+            OrderStatus.Pending => status is OrderStatus.Confirmed or OrderStatus.Cancelled,
+            OrderStatus.Confirmed => status is OrderStatus.Completed or OrderStatus.Cancelled,
+            _ => false
+        };
+
+        if (!transitionAllowed)
+        {
+            throw new BusinessLogicException(
+                $"تغییر وضعیت سفارش از {order.Status} به {status} مجاز نیست");
         }
 
         order.Status = status;

@@ -49,3 +49,17 @@ dotnet ef database update --project .\VisitorApp.Persistence --startup-project .
 ## پاسخ خطا
 
 Middleware پاسخ خطا را با `statusCode`، `traceId`، `data: null` و شیء `error` شامل پیام، جزئیات و خطاهای اعتبارسنجی برمی‌گرداند. خطای اعتبارسنجی `400`، نبود سفارش `404`، تعارض هم‌زمانی `409` و خطای پیش‌بینی‌نشده `500` است؛ جزئیات خطای `500` در Production افشا نمی‌شود.
+
+## تغییر وضعیت
+
+گذارهای مجاز: `Pending` به `Confirmed` یا `Cancelled`؛ `Confirmed` به `Completed` یا `Cancelled`. وضعیت‌های نهایی قابل تغییر نیستند.
+
+## تست‌ها
+
+اجرا:
+
+```powershell
+dotnet test --project .\Tests\VisitorApp.Application.Tests\VisitorApp.Application.Tests.csproj
+```
+
+تست‌های xUnit v3 با Microsoft Testing Platform، منطق سفارش و APIهای ایجاد، دریافت، فهرست مشتری و تغییر وضعیت را پوشش می‌دهند. APIها با `TestServer` و تست‌های handler با EF Core InMemory اجرا می‌شوند؛ هر تست نام دیتابیس مستقل می‌گیرد و به دیتابیس اصلی وصل نمی‌شود. این روش سریع است، اما رفتار اختصاصی SQL Server، migrationها و رقابت تراکنشی را نمی‌سنجد؛ برای آن موارد باید از SQL Server تستیِ جداگانه استفاده شود.
