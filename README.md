@@ -12,39 +12,50 @@
 
 ## سفارش‌های پرتعداد مشتری
 
-برای جدول `Orders` با بیش از ۲۰ میلیون رکورد، درخواست پرتکرار باید مشتری را فیلتر و بر اساس تاریخ ایجاد مرتب و صفحه‌بندی کند:
+### عوامل کندی
+
+اسکن جدول، `Skip` در صفحه‌های عمیق، محاسبه‌ی `COUNT(*)` کل در هر درخواست، بارگذاری entityهای کامل و query جداگانه برای هر سفارش (N+1) هزینه‌سازند.
+
+### تغییرات Query و Application
+
+`GET /api/Customers/{customerId}/Orders` اکنون از keyset pagination استفاده می‌کند. ترتیب پایدار `(CreatedAt DESC, Id DESC)` است؛ درخواست بعدی `afterCreatedAt` و `afterId` را از `nextCursor` می‌فرستد. `PageSize` پیش‌فرض ۲۰ و سقف آن ۱۰۰ است. `page` فقط برای صفحه‌ی اول پذیرفته می‌شود؛ صفحات بعد باید از cursor استفاده کنند.
+
+Query فقط ستون‌های پاسخ را با `AsNoTracking` می‌خواند، `pageSize + 1` ردیف می‌گیرد تا `hasMore` را تعیین کند و دیگر total count اجرا نمی‌کند. تعداد اقلام به شکل projection در همان query محاسبه می‌شود، نه با query جدا برای هر سفارش؛ در نتیجه یک رفت‌وبرگشت به DB داریم.
+پاسخ شامل `list`، `hasMore` و `nextCursor` است؛ مصرف‌کننده برای ادامه نباید به total count یا شماره صفحه متکی باشد.
 
 ```csharp
-db.Orders
-    .Where(o => o.CustomerId == customerId)
-    .OrderByDescending(o => o.CreatedAt)
-    .Skip(offset)
-    .Take(pageSize);
+Where(customerId && (CreatedAt < cursorDate ||
+    (CreatedAt == cursorDate && Id.CompareTo(cursorId) < 0)))
+OrderByDescending(CreatedAt).ThenByDescending(Id)
+Select(responseFields).Take(pageSize + 1)
 ```
 
-درخواست `GetCustomerOrders` همین فیلتر را اعمال می‌کند و صفحه‌بندی فعلی مخزن، مرتب‌سازی نزولی `CreatedAt` دارد.
-
-### تغییر پایگاه داده و Index
-
-Migration، ایندکس مرکب زیر را به `Orders` اضافه می‌کند:
+### Indexها
 
 ```sql
 CREATE INDEX IX_Orders_CustomerId_CreatedAt
-ON Orders (CustomerId ASC, RemovedAt ASC, CreatedAt DESC)
+ON Orders (CustomerId, RemovedAt, CreatedAt DESC, Id DESC)
 INCLUDE (OrderNumber, OrderDate, TotalAmount, Status);
+
+CREATE INDEX IX_OrderItems_OrderId_RemovedAt
+ON OrderItems (OrderId, RemovedAt);
 ```
 
-`CustomerId` و `RemovedAt` فیلتر مشتری و soft-delete را اعمال می‌کنند؛ `CreatedAt DESC` ترتیب را پوشش می‌دهد و ستون‌های `INCLUDE` خواندن اطلاعات خروجی را ارزان‌تر می‌کنند. ایندکس مرکب همچنین جای ایندکس تک‌ستونی `CustomerId` را می‌گیرد.
+ایندکس Orders فیلتر مشتری و soft-delete، ترتیب و cursor را پوشش می‌دهد؛ ستون‌های `INCLUDE` lookup برای فیلدهای پاسخ را کم می‌کنند. ایندکس OrderItems، شمارش اقلام فعال هر سفارش را پشتیبانی می‌کند. هر دو در migration `OptimizeCustomerOrdersQuery` هستند.
 
-Migration در `VisitorApp.Persistence/Migrations` قرار دارد و با دستور زیر اعمال می‌شود:
+اعمال migration:
 
 ```powershell
 dotnet ef database update --project .\VisitorApp.Persistence --startup-project .\VisitorApp.Api
 ```
 
-### رشد بیشتر داده
+ساخت یا بازسازی ایندکس روی جداول بزرگ می‌تواند lock و زمان استقرار ایجاد کند؛ migration را ابتدا روی نسخه‌ی هم‌اندازه‌ی دیتابیس production بسنجید و برای production زمان‌بندی یا online index build متناسب با edition SQL Server در نظر بگیرید.
 
-`Skip/Take` صفحه‌های عمیق را پرهزینه می‌کند؛ برای آن‌ها از keyset pagination بر پایه‌ی `(CreatedAt, Id)` استفاده کنید. ایندکس‌ها هزینه‌ی نوشتن و دیسک دارند؛ کارایی را با execution plan و بار واقعی پایش کنید. در مقیاس بالاتر، آرشیو یا partitioning بر اساس تاریخ را ارزیابی کنید.
+### سنجش و رشد آینده
+
+تست‌ها عبور cursor، نبود هم‌پوشانی صفحات و مسیر API را بررسی می‌کنند؛ این‌ها benchmark دیتابیس نیستند. سنجش واقعی باید روی SQL Server با داده‌ی هم‌اندازه‌ی تولید، Actual Execution Plan، `SET STATISTICS IO, TIME ON` و p95/p99 latency انجام و با نسخه‌ی قبلی مقایسه شود. در این محیط benchmark SQL Server اجرا نشده است.
+
+با رشد بیشتر، شمارش اقلام، مشتریان پرترافیک، حجم ایندکس و هزینه‌ی نوشتن می‌توانند گلوگاه شوند. پایش logical reads، حجم و fragmentation ایندکس‌ها ضروری است؛ در صورت نیاز cache، آرشیو/partitioning یا جداسازی read workload را با داده‌ی واقعی ارزیابی کنید.
 
 ## پاسخ خطا
 
@@ -62,4 +73,4 @@ Middleware پاسخ خطا را با `statusCode`، `traceId`، `data: null` و 
 dotnet test --project .\Tests\VisitorApp.Application.Tests\VisitorApp.Application.Tests.csproj
 ```
 
-تست‌های xUnit v3 با Microsoft Testing Platform، منطق سفارش و APIهای ایجاد، دریافت، فهرست مشتری و تغییر وضعیت را پوشش می‌دهند. APIها با `TestServer` و تست‌های handler با EF Core InMemory اجرا می‌شوند؛ هر تست نام دیتابیس مستقل می‌گیرد و به دیتابیس اصلی وصل نمی‌شود. این روش سریع است، اما رفتار اختصاصی SQL Server، migrationها و رقابت تراکنشی را نمی‌سنجد؛ برای آن موارد باید از SQL Server تستیِ جداگانه استفاده شود.
+تست‌های xUnit v3 با Microsoft Testing Platform، منطق سفارش و APIهای ایجاد، دریافت، فهرست مشتری و تغییر وضعیت را پوشش می‌دهند. APIها با `TestServer` و تست‌های handler با EF Core InMemory اجرا می‌شوند؛ هر تست نام دیتابیس مستقل می‌گیرد و به دیتابیس اصلی وصل نمی‌شود. یک تست جداگانه ترجمه‌ی cursor به SQL Server را بدون اتصال بررسی می‌کند. این روش‌ها benchmark واقعی، اجرای migration یا رقابت تراکنشی SQL Server نیستند؛ برای آن موارد باید از SQL Server تستیِ جداگانه استفاده شود.

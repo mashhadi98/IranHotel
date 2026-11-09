@@ -703,11 +703,11 @@ namespace VisitorApp.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("CustomerId", "RemovedAt", "CreatedAt")
-                        .IsDescending(false, false, true)
+                    b.HasIndex("CustomerId", "RemovedAt", "CreatedAt", "Id")
+                        .IsDescending(false, false, true, true)
                         .HasDatabaseName("IX_Orders_CustomerId_CreatedAt");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CustomerId", "RemovedAt", "CreatedAt"), new[] { "OrderNumber", "OrderDate", "TotalAmount", "Status" });
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CustomerId", "RemovedAt", "CreatedAt", "Id"), new[] { "OrderNumber", "OrderDate", "TotalAmount", "Status" });
 
                     b.ToTable("Orders", (string)null);
                 });
@@ -745,9 +745,10 @@ namespace VisitorApp.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderId");
-
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("OrderId", "RemovedAt")
+                        .HasDatabaseName("IX_OrderItems_OrderId_RemovedAt");
 
                     b.ToTable("OrderItems", (string)null);
                 });

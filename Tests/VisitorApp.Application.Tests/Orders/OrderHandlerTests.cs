@@ -4,6 +4,7 @@ using VisitorApp.Application.Common.Services;
 using VisitorApp.Application.Features.Orders.ChangeStatus;
 using VisitorApp.Application.Features.Orders.Create;
 using VisitorApp.Application.Features.Orders.Create.Validators;
+using VisitorApp.Application.Features.Orders.GetCustomerOrders;
 using VisitorApp.Application.Common.Interfaces;
 using VisitorApp.Contract.Features.Orders.ChangeStatus;
 using VisitorApp.Contract.Features.Orders.Create;
@@ -129,6 +130,54 @@ public class OrderHandlerTests
             }, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task GetCustomerOrders_UsesCursorAndReturnsNextPageWithoutOverlap()
+    {
+        using var database = await OrderTestDatabase.CreateAsync();
+        var customer = await database.AddCustomerAsync();
+        var firstDate = new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+        await database.AddOrderAsync(customer.Id, firstDate);
+        await database.AddOrderAsync(customer.Id, firstDate.AddDays(1));
+        await database.AddOrderAsync(customer.Id, firstDate.AddDays(2));
+        var handler = database.CreateCustomerOrdersHandler();
+
+        var firstPage = await handler.Handle(new GetCustomerOrdersQueryRequest
+        {
+            CustomerId = customer.Id,
+            PageSize = 2
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, firstPage.List.Count);
+        Assert.True(firstPage.HasMore);
+        Assert.NotNull(firstPage.NextCursor);
+        Assert.Equal(firstDate.AddDays(2), firstPage.List.First().CreatedAt);
+
+        var secondPage = await handler.Handle(new GetCustomerOrdersQueryRequest
+        {
+            CustomerId = customer.Id,
+            PageSize = 2,
+            AfterCreatedAt = firstPage.NextCursor!.CreatedAt,
+            AfterId = firstPage.NextCursor.Id
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Single(secondPage.List);
+        Assert.False(secondPage.HasMore);
+        Assert.Null(secondPage.NextCursor);
+        Assert.DoesNotContain(secondPage.List, item => firstPage.List.Any(first => first.Id == item.Id));
+    }
+
+    [Fact]
+    public async Task GetCustomerOrders_RejectsOffsetPagesAfterTheFirst()
+    {
+        using var database = await OrderTestDatabase.CreateAsync();
+        var customer = await database.AddCustomerAsync();
+        var handler = database.CreateCustomerOrdersHandler();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(
+            new GetCustomerOrdersQueryRequest { CustomerId = customer.Id, Page = 2 },
+            TestContext.Current.CancellationToken));
+    }
+
     private sealed class OrderTestDatabase : IDisposable
     {
         private readonly IAuditService auditService = new NoOpAuditService();
@@ -181,6 +230,21 @@ public class OrderHandlerTests
             return order;
         }
 
+        public async Task<Order> AddOrderAsync(Guid customerId, DateTime createdAt)
+        {
+            var order = new Order
+            {
+                CustomerId = customerId,
+                OrderNumber = $"#{Guid.NewGuid():N}",
+                CreatedAt = createdAt,
+                OrderDate = createdAt,
+                Status = OrderStatus.Pending
+            };
+            Context.Orders.Add(order);
+            await Context.SaveChangesAsync(TestContext.Current.CancellationToken);
+            return order;
+        }
+
         public CreateOrderCommandHandler CreateOrderHandler() =>
             new(
                 new EfRepository<Order>(Context, auditService),
@@ -190,6 +254,9 @@ public class OrderHandlerTests
                 [new CreateOrderCommandValidator()]);
 
         public ChangeOrderStatusCommandHandler CreateStatusHandler() =>
+            new(new EfRepository<Order>(Context, auditService));
+
+        public GetCustomerOrdersQueryHandler CreateCustomerOrdersHandler() =>
             new(new EfRepository<Order>(Context, auditService));
 
         public void Dispose() => Context.Dispose();

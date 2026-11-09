@@ -23,6 +23,9 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
 
         builder.Ignore(oi => oi.TotalPrice);
 
+        builder.HasIndex(oi => new { oi.OrderId, oi.RemovedAt })
+            .HasDatabaseName("IX_OrderItems_OrderId_RemovedAt");
+
         // Relationship with Order
         builder.HasOne(oi => oi.Order)
             .WithMany(o => o.Items)

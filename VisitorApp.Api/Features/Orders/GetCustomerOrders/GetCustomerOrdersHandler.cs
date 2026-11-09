@@ -3,7 +3,7 @@ using VisitorApp.Contract.Features.Orders.GetCustomerOrders;
 
 namespace VisitorApp.API.Features.Orders.GetCustomerOrders;
 
-public class GetCustomerOrdersHandler : GetEndpoint<GetCustomerOrdersRequest, GetCustomerOrdersQueryRequest, PaginatedResponse<GetCustomerOrdersQueryResponse>>
+public class GetCustomerOrdersHandler : GetEndpoint<GetCustomerOrdersRequest, GetCustomerOrdersQueryRequest, CursorPaginatedResponse<GetCustomerOrdersQueryResponse>>
 {
     public override string? RolesAccess => "Admin";
 

@@ -42,15 +42,40 @@ public class OrderApiTests
         var orderId = createdOrder.GetProperty("id").GetGuid();
         Assert.Equal(30m, createdOrder.GetProperty("totalAmount").GetDecimal());
 
+        var secondCreateResponse = await client.PostAsJsonAsync("/api/Orders", new
+        {
+            customerId = host.CustomerId,
+            items = new[] { new { productId = host.ProductId, quantity = 1 } }
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, secondCreateResponse.StatusCode);
+
         var getOrderResponse = await client.GetAsync(
             $"/api/Orders/{orderId}",
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, getOrderResponse.StatusCode);
 
         var customerOrdersResponse = await client.GetAsync(
-            $"/api/Customers/{host.CustomerId}/Orders?page=1&pageSize=10",
+            $"/api/Customers/{host.CustomerId}/Orders?pageSize=1",
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, customerOrdersResponse.StatusCode);
+        using var customerOrdersJson = await JsonDocument.ParseAsync(
+            await customerOrdersResponse.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken),
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Single(customerOrdersJson.RootElement.GetProperty("data").GetProperty("list").EnumerateArray());
+        var firstPage = customerOrdersJson.RootElement.GetProperty("data");
+        Assert.True(firstPage.GetProperty("hasMore").GetBoolean());
+        var cursor = firstPage.GetProperty("nextCursor");
+        var cursorTimestamp = Uri.EscapeDataString(cursor.GetProperty("createdAt").GetString()!);
+        var cursorId = cursor.GetProperty("id").GetGuid();
+
+        var nextPageResponse = await client.GetAsync(
+            $"/api/Customers/{host.CustomerId}/Orders?pageSize=1&afterCreatedAt={cursorTimestamp}&afterId={cursorId}",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, nextPageResponse.StatusCode);
+        using var nextPageJson = await JsonDocument.ParseAsync(
+            await nextPageResponse.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken),
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Single(nextPageJson.RootElement.GetProperty("data").GetProperty("list").EnumerateArray());
 
         var changeStatusResponse = await client.PatchAsJsonAsync(
             $"/api/Orders/{orderId}/Status",
