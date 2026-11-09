@@ -7,6 +7,8 @@ using System.Text;
 using VisitorApp.Application.Features.Identity.Common;
 using MediatR;
 using VisitorApp.Contract.Features.Identity.RefreshToken;
+using VisitorApp.Application.Common.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace VisitorApp.Application.Features.Identity.RefreshToken;
 
@@ -14,18 +16,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommandReq
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-
-    // JWT settings - should match LoginCommandHandler
-    private const string SecretKey = "VisitorApp-Super-Secret-Key-For-JWT-Token-Generation-2024-MinLength32Chars";
-    private const string Issuer = "VisitorApp";
-    private const string Audience = "VisitorApp-API";
+    private readonly JwtSettings _jwtSettings;
 
     public RefreshTokenCommandHandler(
         UserManager<ApplicationUser> userManager,
-        IRefreshTokenRepository refreshTokenRepository)
+        IRefreshTokenRepository refreshTokenRepository,
+        IOptions<JwtSettings> jwtSettings)
     {
         _userManager = userManager;
         _refreshTokenRepository = refreshTokenRepository;
+        _jwtSettings = jwtSettings.Value;
     }
 
     public async Task<RefreshTokenCommandResponse> Handle(RefreshTokenCommandRequest request, CancellationToken cancellationToken)
@@ -71,7 +71,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommandReq
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
                 Token = newRefreshToken,
-                ExpiresAt = DateTime.UtcNow.AddDays(30),
+                ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenDays),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -86,7 +86,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommandReq
                 LastName = user.LastName,
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                ExpiresAt = DateTime.UtcNow.AddHours(1),
+                ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes),
                 IsSuccess = true,
                 Message = "Tokens refreshed successfully"
             };
@@ -105,16 +105,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommandReq
     private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(SecretKey);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.SigningKey);
 
         var tokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = Issuer,
+            ValidIssuer = _jwtSettings.Issuer,
             ValidateAudience = true,
-            ValidAudience = Audience,
+            ValidAudience = _jwtSettings.Audience,
             ValidateLifetime = false, // Don't validate expiration for refresh
             ClockSkew = TimeSpan.Zero,
             RequireExpirationTime = true
@@ -134,7 +134,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommandReq
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(SecretKey);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.SigningKey);
         
         var claims = new List<Claim>
         {
@@ -158,9 +158,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommandReq
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(1),
-            Issuer = Issuer,
-            Audience = Audience,
+            Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes),
+            Issuer = _jwtSettings.Issuer,
+            Audience = _jwtSettings.Audience,
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key), 
                 SecurityAlgorithms.HmacSha256Signature)

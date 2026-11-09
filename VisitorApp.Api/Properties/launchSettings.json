@@ -16,7 +16,6 @@
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ConnectionStrings__ApplicationDb": "Data Source=DESKTOP-VV19P79\\SQL2025;Initial Catalog=IranhotelDB;Integrated Security=True;Persist Security Info=False;Pooling=False;MultipleActiveResultSets=False;Encrypt=False;TrustServerCertificate=True;Command Timeout=0",
         "ErrorResponse__Validation__Title": "Validation failed",
         "ErrorResponse__Validation__Details": "One or more validation errors occurred.",
         "ErrorResponse__BadRequest__Title": "Bad Request",

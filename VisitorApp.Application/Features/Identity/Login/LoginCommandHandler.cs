@@ -7,6 +7,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using VisitorApp.Application.Features.Identity.Common;
 using VisitorApp.Contract.Features.Identity.Login;
+using VisitorApp.Application.Common.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace VisitorApp.Application.Features.Identity.Login;
 
@@ -16,22 +18,20 @@ public class LoginCommandHandler : RequestHandlerBase<LoginCommandRequest, Login
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IOpenIddictApplicationManager _applicationManager;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-
-    // JWT settings - in production, these should come from configuration
-    private const string SecretKey = "VisitorApp-Super-Secret-Key-For-JWT-Token-Generation-2024-MinLength32Chars";
-    private const string Issuer = "VisitorApp";
-    private const string Audience = "VisitorApp-API";
+    private readonly JwtSettings _jwtSettings;
 
     public LoginCommandHandler(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IOpenIddictApplicationManager applicationManager,
-        IRefreshTokenRepository refreshTokenRepository)
+        IRefreshTokenRepository refreshTokenRepository,
+        IOptions<JwtSettings> jwtSettings)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _applicationManager = applicationManager;
         _refreshTokenRepository = refreshTokenRepository;
+        _jwtSettings = jwtSettings.Value;
     }
 
     public override async Task<LoginCommandResponse> Handler(LoginCommandRequest request, CancellationToken cancellationToken)
@@ -91,7 +91,7 @@ public class LoginCommandHandler : RequestHandlerBase<LoginCommandRequest, Login
         await SaveRefreshTokenAsync(user.Id, refreshToken);
         
         // Set expiration time (1 hour for access token)
-        var expiresAt = DateTime.UtcNow.AddHours(1);
+        var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes);
 
         return new TokenResult
         {
@@ -104,7 +104,7 @@ public class LoginCommandHandler : RequestHandlerBase<LoginCommandRequest, Login
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(SecretKey);
+        var key = Encoding.UTF8.GetBytes(_jwtSettings.SigningKey);
         
         var claims = new List<Claim>
         {
@@ -128,9 +128,9 @@ public class LoginCommandHandler : RequestHandlerBase<LoginCommandRequest, Login
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(1),
-            Issuer = Issuer,
-            Audience = Audience,
+            Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenMinutes),
+            Issuer = _jwtSettings.Issuer,
+            Audience = _jwtSettings.Audience,
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key), 
                 SecurityAlgorithms.HmacSha256Signature)
@@ -153,7 +153,7 @@ public class LoginCommandHandler : RequestHandlerBase<LoginCommandRequest, Login
         {
             UserId = userId,
             Token = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddDays(30)
+            ExpiresAt = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenDays)
         };
         
         refreshTokenEntity.SetCreated();

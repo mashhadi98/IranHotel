@@ -10,7 +10,7 @@ public class SimpleOrderCreationTest
     public void AddingOrder_ShouldSetOrderIdOnOrderItems()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlServer("Server=localhost;Database=VisitorAppTests;Trusted_Connection=True;TrustServerCertificate=True")
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
         using var context = new ApplicationDbContext(options);

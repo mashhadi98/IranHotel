@@ -1,5 +1,107 @@
 # سفارش و موجودی
 
+## تنظیمات ذخیره‌شده در User Secrets
+
+برای اجرای محلی در محیط Development، این تنظیمات در User Secrets پروژه‌ی API ذخیره شده‌اند و در فایل‌های مخزن قرار ندارند:
+
+- اتصال دیتابیس: `ConnectionStrings:ApplicationDb`
+- JWT: `Jwt:SigningKey`، `Jwt:Issuer`، `Jwt:Audience`، `Jwt:AccessTokenMinutes`، `Jwt:RefreshTokenDays` و `Jwt:RequireHttpsMetadata`
+- مدیر اولیه: `AdminSeed:Email`، `AdminSeed:Password`، `AdminSeed:FirstName` و `AdminSeed:LastName`
+- کلاینت OpenIddict: `OpenIddict:Client:Id`، `Secret`، `DisplayName`، `RedirectUris:0`، `RedirectUris:1` و `PostLogoutRedirectUris:0`
+
+برای عوض‌کردن هر مقدار، از ریشه‌ی repository دستور `dotnet user-secrets set` را با نام کامل کلید اجرا کنید. برای مثال:
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:ApplicationDb" "<new connection string>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "Jwt:SigningKey" "<new random key of at least 32 bytes>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "AdminSeed:Password" "<new initial admin password>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "OpenIddict:Client:Secret" "<new client secret>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+```
+
+همین دستور برای هر کلید فهرست‌شده قابل استفاده است. مقادیر را می‌توان با `dotnet user-secrets list --project .\VisitorApp.Api\VisitorApp.API.csproj` دید؛ از اجرای آن در خروجی‌های مشترک یا ضبط‌شده خودداری کنید، چون secretها را نمایش می‌دهد. پس از تغییر، برنامه را restart کنید. اگر کلیدی در این دستگاه تنظیم نشده باشد، دستور `set` آن را ایجاد می‌کند.
+
+## تنظیمات محیطی
+
+مقادیر وابسته به محیط و secretها در فایل‌های source نگهداری نمی‌شوند. برنامه هنگام شروع، نبود connection string یا JWT نامعتبر را با خطای واضح رد می‌کند. در PowerShell متغیرهای زیر را برای هر محیط تنظیم کنید:
+
+```powershell
+$env:ConnectionStrings__ApplicationDb = "<SQL Server connection string>"
+$env:Jwt__SigningKey = "<base64-encoded random key of at least 32 bytes>"
+$env:Jwt__Issuer = "<issuer>"
+$env:Jwt__Audience = "<audience>"
+$env:Jwt__AccessTokenMinutes = "60"
+$env:Jwt__RefreshTokenDays = "30"
+$env:Jwt__RequireHttpsMetadata = "true"
+$env:AdminSeed__Email = "<initial admin email>"
+$env:AdminSeed__Password = "<strong initial admin password>"
+$env:AdminSeed__FirstName = "<first name>"
+$env:AdminSeed__LastName = "<last name>"
+$env:OpenIddict__Client__Id = "<client id>"
+$env:OpenIddict__Client__Secret = "<client secret>"
+$env:OpenIddict__Client__DisplayName = "<client display name>"
+$env:OpenIddict__Client__RedirectUris__0 = "<absolute redirect URI>"
+$env:OpenIddict__Client__PostLogoutRedirectUris__0 = "<absolute post-logout URI>"
+```
+
+برای ساخت کلید تصادفی در PowerShell از
+`[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`
+استفاده کنید. مقادیر واقعی را در secret manager محیط اجرا نگه دارید، نه در repository یا `launchSettings.json`.
+EF Core design-time factory نیز فقط `ConnectionStrings__ApplicationDb` را می‌خواند؛ بنابراین migration و اجرای API روی یک دیتابیسِ از پیش تنظیم‌شده انجام می‌شوند:
+
+```powershell
+# تنظیم محلی برای Development (یک‌بار؛ مقدار واقعی را فقط روی سیستم خودتان وارد کنید)
+dotnet user-secrets set "ConnectionStrings:ApplicationDb" "<SQL Server connection string>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+
+# یا در همان PowerShell که برنامه را اجرا می‌کنید:
+$env:ConnectionStrings__ApplicationDb = "<SQL Server connection string>"
+dotnet run --project .\VisitorApp.Api\VisitorApp.API.csproj --launch-profile http
+
+# Migration در PowerShell:
+$env:ConnectionStrings__ApplicationDb = "<SQL Server connection string>"
+dotnet ef database update --project .\VisitorApp.Persistence --startup-project .\VisitorApp.Api
+```
+
+`dotnet user-secrets` در محیط Development توسط `WebApplication.CreateBuilder` بارگذاری می‌شود و برای پروفایل‌های `http`، `https` و IIS Express مشترک است. برای محیط‌های غیر Development از environment variable یا secret manager همان محیط استفاده کنید.
+
+تنظیمات JWT، مدیر اولیه و OpenIddict نیز در Development می‌توانند با همان کلیدها در User Secrets ذخیره شوند؛ برای مثال:
+
+```powershell
+dotnet user-secrets set "Jwt:SigningKey" "<random key of at least 32 bytes>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "Jwt:Issuer" "<issuer>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "Jwt:Audience" "<audience>" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "Jwt:AccessTokenMinutes" "60" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "Jwt:RefreshTokenDays" "30" --project .\VisitorApp.Api\VisitorApp.API.csproj
+dotnet user-secrets set "Jwt:RequireHttpsMetadata" "true" --project .\VisitorApp.Api\VisitorApp.API.csproj
+```
+
+تنظیمات `AdminSeed:*` و `OpenIddict:Client:*` نیز هنگام شروع اجباری‌اند؛ برای هرکدام از کلیدهای فهرست environment بالا، بخش `:`-جداشده را به `dotnet user-secrets set` بدهید. پس از تغییر secretها، برنامه را restart کنید.
+
+فایل‌های migration شامل نام جدول‌ها، ستون‌ها و ایندکس‌های لازم برای بازسازی نسخه‌ی schema هستند و باید در source control باقی بمانند؛ آن‌ها نباید شامل آدرس دیتابیس، credential یا تنظیمات مختص یک محیط باشند.
+
+## اجرای محلی با Docker Compose
+
+پیش‌نیاز: Docker Desktop با پشتیبانی از Linux containers. از ریشه‌ی repository در PowerShell اجرا کنید:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+مقادیر خالی در `.env` را تنظیم کنید:
+
+- `MSSQL_SA_PASSWORD`: رمز قوی SQL Server، با حروف بزرگ و کوچک، عدد و نماد؛ در این مقدار از `;` استفاده نکنید.
+- `JWT_SIGNING_KEY`: کلید تصادفی حداقل ۳۲ بایتی. می‌توانید در PowerShell آن را بسازید:
+  `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`
+- `ADMIN_SEED_PASSWORD`: رمز مدیر اولیه؛ حداقل ۸ نویسه و شامل حرف بزرگ، حرف کوچک و عدد.
+- `OPENIDDICT_CLIENT_SECRET`: secret کلاینت محلی.
+
+سپس سرویس‌ها را بسازید و اجرا کنید:
+
+```powershell
+docker compose up --build
+```
+
+API در `http://localhost:8080` و مستندات Swagger در `http://localhost:8080/swagger` در دسترس است. API پس از سالم‌شدن SQL Server شروع می‌شود و migrationهای موجود را هنگام راه‌اندازی اعمال می‌کند. دیتابیس در volume با نام `sqlserver-data` نگهداری می‌شود؛ برای توقف سرویس‌ها بدون حذف داده‌ها از `docker compose down` استفاده کنید. اجرای `docker compose down -v` volume و داده‌های محلی دیتابیس را حذف می‌کند.
+
 ## الگوهای استفاده‌شده
 
 - **Repository:** دسترسی به داده را از handlerها جدا می‌کند و از پیاده‌سازی EF Core موجود در پروژه استفاده می‌کند.

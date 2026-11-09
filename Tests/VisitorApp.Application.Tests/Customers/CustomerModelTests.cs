@@ -10,7 +10,7 @@ public class CustomerModelTests
     public void Customer_ShouldUseUniqueEmailAndName()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlServer("Server=localhost;Database=VisitorAppTests;Trusted_Connection=True;TrustServerCertificate=True")
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
         using var context = new ApplicationDbContext(options);

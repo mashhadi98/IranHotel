@@ -1,0 +1,10 @@
+.git
+.vs
+.env
+.env.*
+**/bin
+**/obj
+**/logs
+**/TestResults
+VisitorApp.Api/wwwroot/uploads/products
+artifacts

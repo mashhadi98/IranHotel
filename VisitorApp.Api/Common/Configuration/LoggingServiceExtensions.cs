@@ -16,9 +16,7 @@ public static class LoggingServiceExtensions
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddLoggingServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Get connection string from environment variable or configuration
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ApplicationDb")
-            ?? configuration.GetConnectionString("ApplicationDb");
+        var connectionString = configuration.GetConnectionString("ApplicationDb");
         
         var loggerConfig = new LoggerConfiguration()
             .WriteTo.Console()

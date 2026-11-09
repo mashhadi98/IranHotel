@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using VisitorApp.Application.Common.Configuration;
 using System.Text;
 
 namespace VisitorApp.API.Common.Configuration;
@@ -17,12 +18,22 @@ public static class JwtServiceExtensions
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
-        // JWT settings - should match LoginCommandHandler
-        const string secretKey = "VisitorApp-Super-Secret-Key-For-JWT-Token-Generation-2024-MinLength32Chars";
-        const string issuer = "VisitorApp";
-        const string audience = "VisitorApp-API";
-        
-        var key = Encoding.UTF8.GetBytes(secretKey);
+        var settings = configuration.GetSection("Jwt").Get<JwtSettings>()
+            ?? throw new InvalidOperationException("JWT settings are not configured.");
+        if (string.IsNullOrWhiteSpace(settings.SigningKey) ||
+            Encoding.UTF8.GetByteCount(settings.SigningKey) < 32 ||
+            string.IsNullOrWhiteSpace(settings.Issuer) ||
+            string.IsNullOrWhiteSpace(settings.Audience) ||
+            settings.AccessTokenMinutes <= 0 ||
+            settings.RefreshTokenDays <= 0 ||
+            settings.RequireHttpsMetadata is null)
+        {
+            throw new InvalidOperationException(
+                "JWT settings are invalid. Configure a signing key of at least 32 bytes, issuer, audience, and positive token lifetimes.");
+        }
+
+        services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+        var key = Encoding.UTF8.GetBytes(settings.SigningKey);
 
         services.AddAuthentication(x =>
         {
@@ -31,16 +42,16 @@ public static class JwtServiceExtensions
         })
         .AddJwtBearer(x =>
         {
-            x.RequireHttpsMetadata = false; // Set to true in production
+            x.RequireHttpsMetadata = settings.RequireHttpsMetadata.Value;
             x.SaveToken = true;
             x.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(key),
                 ValidateIssuer = true,
-                ValidIssuer = issuer,
+                ValidIssuer = settings.Issuer,
                 ValidateAudience = true,
-                ValidAudience = audience,
+                ValidAudience = settings.Audience,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero, // Remove default 5 minutes tolerance
                 RequireExpirationTime = true

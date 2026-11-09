@@ -13,9 +13,12 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
     {
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         
-        // Connection string for migrations
-        // Note: This is only used during design-time (migrations)
-        var connectionString = "Data Source=DESKTOP-VV19P79\\SQL2025;Initial Catalog=IranhotelDB;Integrated Security=True;Persist Security Info=False;Pooling=False;MultipleActiveResultSets=False;Encrypt=False;TrustServerCertificate=True;Command Timeout=0";
+        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ApplicationDb");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Set the ConnectionStrings__ApplicationDb environment variable before running EF Core migration commands.");
+        }
         
         var migrationsAssembly = typeof(ApplicationDbContext).Assembly.GetName().Name;
         

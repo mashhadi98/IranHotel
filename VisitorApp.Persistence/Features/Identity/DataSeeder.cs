@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using VisitorApp.Domain.Features.Identity.Entities;
 
 namespace VisitorApp.Persistence.Features.Identity;
 
 public static class DataSeeder
 {
-    public static async Task SeedDataAsync(IServiceProvider serviceProvider)
+    public static async Task SeedDataAsync(IServiceProvider serviceProvider, IConfiguration configuration)
     {
         using var scope = serviceProvider.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -18,7 +19,13 @@ public static class DataSeeder
         try
         {
             await SeedRolesAsync(roleManager, logger);
-            await SeedAdminUserAsync(userManager, logger);
+            await SeedAdminUserAsync(
+                userManager,
+                logger,
+                GetRequiredSetting(configuration, "AdminSeed:Email"),
+                GetRequiredSetting(configuration, "AdminSeed:Password"),
+                GetRequiredSetting(configuration, "AdminSeed:FirstName"),
+                GetRequiredSetting(configuration, "AdminSeed:LastName"));
         }
         catch (Exception ex)
         {
@@ -55,11 +62,14 @@ public static class DataSeeder
         }
     }
 
-    private static async Task SeedAdminUserAsync(UserManager<ApplicationUser> userManager, ILogger logger)
+    private static async Task SeedAdminUserAsync(
+        UserManager<ApplicationUser> userManager,
+        ILogger logger,
+        string adminEmail,
+        string adminPassword,
+        string firstName,
+        string lastName)
     {
-        const string adminEmail = "admin@visitorapp.com";
-        const string adminPassword = "Admin123!@#";
-
         var adminUser = await userManager.FindByEmailAsync(adminEmail);
         if (adminUser == null)
         {
@@ -67,8 +77,8 @@ public static class DataSeeder
             {
                 UserName = adminEmail,
                 Email = adminEmail,
-                FirstName = "System",
-                LastName = "Administrator",
+                FirstName = firstName,
+                LastName = lastName,
                 EmailConfirmed = true,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -80,8 +90,7 @@ public static class DataSeeder
             {
                 await userManager.AddToRoleAsync(adminUser, "Admin");
                 logger.LogInformation("Default admin user created successfully");
-                logger.LogInformation("Admin credentials: Email={Email}, Password={Password}", 
-                    adminEmail, adminPassword);
+                logger.LogInformation("Admin user created: {Email}", adminEmail);
             }
             else
             {
@@ -94,4 +103,9 @@ public static class DataSeeder
             logger.LogInformation("Admin user already exists");
         }
     }
-} 
+
+    private static string GetRequiredSetting(IConfiguration configuration, string key) =>
+        configuration[key] is { Length: > 0 } value
+            ? value
+            : throw new InvalidOperationException($"The {key.Replace(':', '_')} environment variable is required.");
+}

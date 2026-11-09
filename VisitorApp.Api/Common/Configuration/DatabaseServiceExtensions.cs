@@ -21,12 +21,13 @@ public static class DatabaseServiceExtensions
 	/// <returns>The service collection for chaining</returns>
 	public static IServiceCollection AddDatabaseServices(this IServiceCollection services, IConfiguration configuration)
 	{
-		// Get connection string from configuration or environment variable
-		var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ApplicationDb")
-			?? configuration.GetConnectionString("ApplicationDb");
+		var connectionString = configuration.GetConnectionString("ApplicationDb");
 		if (string.IsNullOrEmpty(connectionString))
 		{
-			throw new InvalidOperationException("ApplicationDb connection string is not configured. Please set it in appsettings.json or environment variables.");
+			throw new InvalidOperationException(
+				"Database connection string is missing. In Development, set it with " +
+				"'dotnet user-secrets set \"ConnectionStrings:ApplicationDb\" \"<connection-string>\" --project .\\VisitorApp.Api\\VisitorApp.API.csproj'. " +
+				"Otherwise set the ConnectionStrings__ApplicationDb environment variable.");
 		}
 
 		var migrationsAssembly = VisitorApp.Persistence.AssemblyReference.Assembly.GetName().Name;
@@ -72,8 +73,7 @@ public static class DatabaseServiceExtensions
                 logger.LogInformation("Starting database initialization...");
                 
                 // Get and log connection string (without sensitive data)
-                var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ApplicationDb")
-                    ?? configuration.GetConnectionString("ApplicationDb");
+                var connectionString = configuration.GetConnectionString("ApplicationDb");
                 
                 if (!string.IsNullOrEmpty(connectionString))
                 {
@@ -159,14 +159,7 @@ public static class DatabaseServiceExtensions
 	/// <returns>True if SQL Server provider should be used</returns>
 	public static bool IsSqlServerConfigured(IConfiguration configuration)
 	{
-		// Try environment variable first
-		var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__ApplicationDb");
-		
-		// Fallback to configuration
-		if (string.IsNullOrEmpty(connectionString))
-		{
-			connectionString = configuration.GetConnectionString("ApplicationDb");
-		}
+		var connectionString = configuration.GetConnectionString("ApplicationDb");
 		
 		if (string.IsNullOrEmpty(connectionString))
 			return false;

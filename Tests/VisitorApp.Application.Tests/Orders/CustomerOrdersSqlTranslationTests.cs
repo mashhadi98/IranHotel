@@ -10,7 +10,7 @@ public class CustomerOrdersSqlTranslationTests
     public void CustomerOrderCursor_TranslatesToBoundedSeekQuery()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlServer("Server=(localdb);Database=QueryTranslationOnly;TrustServerCertificate=True")
+            .UseSqlServer(string.Empty)
             .Options;
         using var context = new ApplicationDbContext(options);
         var customerId = Guid.NewGuid();

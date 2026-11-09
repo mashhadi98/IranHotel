@@ -121,21 +121,25 @@ public static class IdentityServiceExtensions
     /// Seeds initial OAuth clients and scopes
     /// </summary>
     /// <param name="app">The application builder</param>
+    /// <param name="configuration">Application settings, including environment variables</param>
     /// <returns>Task</returns>
-    public static async Task SeedOpenIddictDataAsync(this IApplicationBuilder app)
+    public static async Task SeedOpenIddictDataAsync(this IApplicationBuilder app, IConfiguration configuration)
     {
         using var scope = app.ApplicationServices.CreateScope();
         var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        var clientId = GetRequiredSetting(configuration, "OpenIddict:Client:Id");
 
         // Check if the client application already exists
-        if (await manager.FindByClientIdAsync("visitor-app-client") == null)
+        if (await manager.FindByClientIdAsync(clientId) == null)
         {
-            await manager.CreateAsync(new OpenIddictApplicationDescriptor
+            var redirectUris = GetRequiredUris(configuration, "OpenIddict:Client:RedirectUris");
+            var postLogoutRedirectUris = GetRequiredUris(configuration, "OpenIddict:Client:PostLogoutRedirectUris");
+            var descriptor = new OpenIddictApplicationDescriptor
             {
-                ClientId = "visitor-app-client",
-                ClientSecret = "visitor-app-secret",
+                ClientId = clientId,
+                ClientSecret = GetRequiredSetting(configuration, "OpenIddict:Client:Secret"),
                 ConsentType = ConsentTypes.Implicit,
-                DisplayName = "VisitorApp Client",
+                DisplayName = GetRequiredSetting(configuration, "OpenIddict:Client:DisplayName"),
                 ClientType = ClientTypes.Confidential,
                 Permissions =
                 {
@@ -151,16 +155,43 @@ public static class IdentityServiceExtensions
                     Permissions.Scopes.Profile,
                     Permissions.Scopes.Roles
                 },
-                RedirectUris =
-                {
-                    new Uri("https://localhost:7001/swagger/oauth2-redirect.html"),
-                    new Uri("https://localhost:7001/signin-callback")
-                },
-                PostLogoutRedirectUris =
-                {
-                    new Uri("https://localhost:7001/signout-callback")
-                }
-            });
+            };
+
+            foreach (var uri in redirectUris)
+            {
+                descriptor.RedirectUris.Add(uri);
+            }
+
+            foreach (var uri in postLogoutRedirectUris)
+            {
+                descriptor.PostLogoutRedirectUris.Add(uri);
+            }
+
+            await manager.CreateAsync(descriptor);
         }
     }
-} 
+
+    private static string GetRequiredSetting(IConfiguration configuration, string key) =>
+        configuration[key] is { Length: > 0 } value
+            ? value
+            : throw new InvalidOperationException($"The {key.Replace(':', '_')} environment variable is required.");
+
+    private static Uri[] GetRequiredUris(IConfiguration configuration, string key)
+    {
+        var values = configuration.GetSection(key).Get<string[]>();
+        if (values is not { Length: > 0 })
+        {
+            throw new InvalidOperationException($"At least one {key.Replace(':', '_')} environment variable is required.");
+        }
+
+        return values.Select(value =>
+        {
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            {
+                throw new InvalidOperationException($"The {key.Replace(':', '_')} values must be absolute URIs.");
+            }
+
+            return uri;
+        }).ToArray();
+    }
+}

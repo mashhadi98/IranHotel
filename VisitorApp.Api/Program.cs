@@ -29,13 +29,12 @@ var app = builder.Build();
 await app.AddDatabaseApplication(builder.Configuration);
 
 // Seed OpenIddict data
-await app.SeedOpenIddictDataAsync();
+await app.SeedOpenIddictDataAsync(builder.Configuration);
 
 // Seed default admin user
-await VisitorApp.Persistence.Features.Identity.DataSeeder.SeedDataAsync(app.Services);
+await VisitorApp.Persistence.Features.Identity.DataSeeder.SeedDataAsync(app.Services, builder.Configuration);
 
 // Configure the HTTP request pipeline
 app.ConfigurePipeline();
 
 app.Run();
-
