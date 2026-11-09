@@ -21,6 +21,11 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => o.OrderNumber)
             .IsUnique();
 
+        builder.HasIndex(o => new { o.CustomerId, o.RemovedAt, o.CreatedAt })
+            .IsDescending(false, false, true)
+            .HasDatabaseName("IX_Orders_CustomerId_CreatedAt")
+            .IncludeProperties(o => new { o.OrderNumber, o.OrderDate, o.TotalAmount, o.Status });
+
         builder.Property(o => o.OrderDate)
             .IsRequired();
 

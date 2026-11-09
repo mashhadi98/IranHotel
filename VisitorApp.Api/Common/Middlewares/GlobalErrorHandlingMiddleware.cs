@@ -31,6 +31,15 @@ public class GlobalErrorHandlingMiddleware
         }
         catch (Exception exception)
         {
+            if (context.Response.HasStarted)
+            {
+                logger.LogError(exception,
+                    "An error occurred after the response started for {RequestPath}. TraceId: {TraceId}",
+                    context.Request.Path,
+                    context.TraceIdentifier);
+                throw;
+            }
+
             await HandleExceptionAsync(context, exception);
         }
     }
@@ -50,6 +59,7 @@ public class GlobalErrorHandlingMiddleware
         var errorResponse = exception switch
         {
             ValidationException validationEx => CreateValidationErrorResponse(validationEx, traceId),
+            FluentValidation.ValidationException validationEx => CreateValidationErrorResponse(validationEx, traceId),
             DbUpdateConcurrencyException concurrencyEx => CreateConcurrencyErrorResponse(concurrencyEx, traceId),
             EntityNotFoundException entityNotFoundEx => CreateEntityNotFoundErrorResponse(entityNotFoundEx, traceId),
             BusinessLogicException businessLogicEx => CreateBusinessLogicErrorResponse(businessLogicEx, traceId),
@@ -60,6 +70,13 @@ public class GlobalErrorHandlingMiddleware
             InvalidOperationException invalidOpEx => CreateBadRequestErrorResponse(invalidOpEx, traceId),
             _ => CreateInternalServerErrorResponse(exception, traceId)
         };
+
+        context.Response.Clear();
+        if (context.Response.Body.CanSeek)
+        {
+            context.Response.Body.SetLength(0);
+            context.Response.Body.Position = 0;
+        }
 
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = errorResponse.StatusCode;
@@ -89,6 +106,26 @@ public class GlobalErrorHandlingMiddleware
         string messageValidationTitle = Environment.GetEnvironmentVariable("ErrorResponse__Validation__Title") ?? "Validation failed";
         string messageValidationDetails = Environment.GetEnvironmentVariable("ErrorResponse__Validation__Details") ?? "One or more validation errors occurred.";
         var response = new StandardResponse(); return response.StandardErrorResponse(
+            message: messageValidationTitle,
+            statusCode: (int)HttpStatusCode.BadRequest,
+            details: environment.IsDevelopment() ? exception.Message : messageValidationDetails,
+            traceId: traceId,
+            validationErrors: errors.Count > 0 ? errors : null
+        );
+    }
+
+    private StandardResponse CreateValidationErrorResponse(FluentValidation.ValidationException exception, string traceId)
+    {
+        var errors = exception.Errors
+            .GroupBy(error => error.PropertyName)
+            .ToDictionary(
+                group => group.Key,
+                group => (object)group.Select(error => error.ErrorMessage).ToArray());
+
+        string messageValidationTitle = Environment.GetEnvironmentVariable("ErrorResponse__Validation__Title") ?? "Validation failed";
+        string messageValidationDetails = Environment.GetEnvironmentVariable("ErrorResponse__Validation__Details") ?? "One or more validation errors occurred.";
+        var response = new StandardResponse();
+        return response.StandardErrorResponse(
             message: messageValidationTitle,
             statusCode: (int)HttpStatusCode.BadRequest,
             details: environment.IsDevelopment() ? exception.Message : messageValidationDetails,

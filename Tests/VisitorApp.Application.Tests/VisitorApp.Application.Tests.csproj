@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\VisitorApp.Api\VisitorApp.API.csproj" />
     <ProjectReference Include="..\..\VisitorApp.Application\VisitorApp.Application.csproj" />
     <ProjectReference Include="..\..\VisitorApp.Infrastructure\VisitorApp.Infrastructure.csproj" />
     <ProjectReference Include="..\..\VisitorApp.Persistence\VisitorApp.Persistence.csproj" />

@@ -698,12 +698,16 @@ namespace VisitorApp.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId");
-
                     b.HasIndex("OrderNumber")
                         .IsUnique();
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("CustomerId", "RemovedAt", "CreatedAt")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("IX_Orders_CustomerId_CreatedAt");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CustomerId", "RemovedAt", "CreatedAt"), new[] { "OrderNumber", "OrderDate", "TotalAmount", "Status" });
 
                     b.ToTable("Orders", (string)null);
                 });

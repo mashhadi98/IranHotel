@@ -40,16 +40,33 @@ public class CreateOrderCommandHandler(
             TotalAmount = 0
         };
 
-        // Add order items
+        var requestedQuantities = request.Items
+            .GroupBy(item => item.ProductId)
+            .ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
+        var products = new Dictionary<Guid, Product>();
+
+        foreach (var (productId, quantity) in requestedQuantities)
+        {
+            var product = await productRepository.GetByIdAsync(productId, cancellationToken);
+            if (product == null)
+            {
+                throw new ArgumentException($"محصول با شناسه {productId} یافت نشد");
+            }
+
+            if (product.Stock < quantity)
+            {
+                throw new ArgumentException(
+                    $"موجودی محصول {product.Name} کافی نیست. موجودی: {product.Stock}، درخواست: {quantity}");
+            }
+
+            products.Add(productId, product);
+        }
+
+        // Add order items using server-side prices, then decrement each product once.
         decimal totalAmount = 0;
         foreach (var itemDto in request.Items)
         {
-            // Verify product exists
-            var product = await productRepository.GetByIdAsync(itemDto.ProductId, cancellationToken);
-            if (product == null)
-            {
-                throw new ArgumentException($"محصول با شناسه {itemDto.ProductId} یافت نشد");
-            }
+            var product = products[itemDto.ProductId];
 
             var orderItem = new OrderItem
             {
@@ -63,6 +80,11 @@ public class CreateOrderCommandHandler(
         }
 
         order.TotalAmount = totalAmount;
+
+        foreach (var (productId, quantity) in requestedQuantities)
+        {
+            products[productId].Stock -= quantity;
+        }
 
         await orderRepository.AddAsync(entity: order, autoSave: true, cancellationToken: cancellationToken);
 
