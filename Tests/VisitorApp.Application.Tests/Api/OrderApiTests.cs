@@ -28,6 +28,15 @@ public class OrderApiTests
         await using var host = await OrderApiHost.CreateAsync();
         using var client = host.Client;
 
+        var productResponse = await client.GetAsync(
+            $"/api/Products/{host.ProductId}",
+            TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, productResponse.StatusCode);
+        using var productJson = await JsonDocument.ParseAsync(
+            await productResponse.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken),
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(10, productJson.RootElement.GetProperty("data").GetProperty("stock").GetInt32());
+
         var createResponse = await client.PostAsJsonAsync("/api/Orders", new
         {
             customerId = host.CustomerId,
@@ -35,6 +44,14 @@ public class OrderApiTests
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+        var refreshedProductResponse = await client.GetAsync(
+            $"/api/Products/{host.ProductId}",
+            TestContext.Current.CancellationToken);
+        using var refreshedProductJson = await JsonDocument.ParseAsync(
+            await refreshedProductResponse.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken),
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Equal(8, refreshedProductJson.RootElement.GetProperty("data").GetProperty("stock").GetInt32());
+
         using var createJson = await JsonDocument.ParseAsync(
             await createResponse.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken),
             cancellationToken: TestContext.Current.CancellationToken);

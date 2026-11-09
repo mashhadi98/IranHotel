@@ -13,6 +13,7 @@ public class CreateOrderCommandHandler(
     IRepository<Order> orderRepository,
     IRepository<Customer> customerRepository,
     IRepository<Product> productRepository,
+    IProductResponseCache productResponseCache,
     ICurrentUserService currentUserService,
     IEnumerable<IValidatorService<CreateOrderCommandRequest, CreateOrderCommandResponse>> validators) 
     : RequestHandlerBase<CreateOrderCommandRequest, CreateOrderCommandResponse>(validators)
@@ -87,6 +88,11 @@ public class CreateOrderCommandHandler(
         }
 
         await orderRepository.AddAsync(entity: order, autoSave: true, cancellationToken: cancellationToken);
+
+        foreach (var productId in requestedQuantities.Keys)
+        {
+            productResponseCache.Invalidate(productId);
+        }
 
         // Load relations for response
         var savedOrder = await orderRepository.GetQuery()

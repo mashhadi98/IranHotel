@@ -8,6 +8,7 @@ using VisitorApp.Application.Features.Orders.GetCustomerOrders;
 using VisitorApp.Application.Common.Interfaces;
 using VisitorApp.Contract.Features.Orders.ChangeStatus;
 using VisitorApp.Contract.Features.Orders.Create;
+using VisitorApp.Contract.Features.Products.GetById;
 using VisitorApp.Domain.Features.Audit.Interfaces;
 using VisitorApp.Domain.Features.Catalog.Entities;
 using VisitorApp.Domain.Features.Customers.Entities;
@@ -40,6 +41,24 @@ public class OrderHandlerTests
         Assert.Equal(3, (await database.Context.Products.SingleAsync(
             item => item.Id == product.Id, TestContext.Current.CancellationToken)).Stock);
         Assert.Equal(1, await database.Context.Orders.CountAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task CreateOrder_InvalidatesCachedProductsAfterStockIsCommitted()
+    {
+        using var database = await OrderTestDatabase.CreateAsync();
+        var customer = await database.AddCustomerAsync();
+        var product = await database.AddProductAsync(price: 12.50m, stock: 5);
+        var cache = new TestProductResponseCache();
+        var handler = database.CreateOrderHandler(cache);
+
+        await handler.Handle(new CreateOrderCommandRequest
+        {
+            CustomerId = customer.Id,
+            Items = [new CreateOrderItemRequest { ProductId = product.Id, Quantity = 1 }]
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Contains(product.Id, cache.InvalidatedProductIds);
     }
 
     [Fact]
@@ -245,11 +264,12 @@ public class OrderHandlerTests
             return order;
         }
 
-        public CreateOrderCommandHandler CreateOrderHandler() =>
+        public CreateOrderCommandHandler CreateOrderHandler(IProductResponseCache? cache = null) =>
             new(
                 new EfRepository<Order>(Context, auditService),
                 new EfRepository<Customer>(Context, auditService),
                 new EfRepository<Product>(Context, auditService),
+                cache ?? new TestProductResponseCache(),
                 currentUser,
                 [new CreateOrderCommandValidator()]);
 
@@ -272,5 +292,17 @@ public class OrderHandlerTests
     {
         public Guid? UserId => null;
         public string? UserName => "test-user";
+    }
+
+    private sealed class TestProductResponseCache : IProductResponseCache
+    {
+        public List<Guid> InvalidatedProductIds { get; } = [];
+
+        public Task<ProductResponse?> GetOrCreateAsync(
+            Guid productId,
+            Func<CancellationToken, Task<ProductResponse?>> factory,
+            CancellationToken cancellationToken) => factory(cancellationToken);
+
+        public void Invalidate(Guid productId) => InvalidatedProductIds.Add(productId);
     }
 }

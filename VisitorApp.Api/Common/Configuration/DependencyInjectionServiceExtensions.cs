@@ -71,6 +71,8 @@ public static class DependencyInjectionServiceExtensions
 
         // Register specific services manually
         services.AddScoped<VisitorApp.Application.Common.Services.ICurrentUserService, VisitorApp.API.Common.Services.CurrentUserService>();
+        services.AddMemoryCache();
+        services.AddSingleton<VisitorApp.Application.Common.Services.IProductResponseCache, VisitorApp.API.Common.Services.ProductResponseCache>();
         services.AddScoped(typeof(VisitorApp.Application.Common.Interfaces.IRepository<>), typeof(VisitorApp.Infrastructure.Common.Repository.EfRepository<>));
         services.AddScoped(typeof(VisitorApp.Application.Common.Interfaces.IRepository<,>), typeof(VisitorApp.Infrastructure.Common.Repository.EfRepository<,>));
         // Register HttpContextAccessor for CurrentUserService
