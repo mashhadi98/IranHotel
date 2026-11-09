@@ -1,0 +1,67 @@
+{
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5176"
+    },
+    "https": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ConnectionStrings__ApplicationDb": "Data Source=DESKTOP-VV19P79\\SQL2025;Initial Catalog=IranhotelDB;Integrated Security=True;Persist Security Info=False;Pooling=False;MultipleActiveResultSets=False;Encrypt=False;TrustServerCertificate=True;Command Timeout=0",
+        "ErrorResponse__Validation__Title": "Validation failed",
+        "ErrorResponse__Validation__Details": "One or more validation errors occurred.",
+        "ErrorResponse__BadRequest__Title": "Bad Request",
+        "ErrorResponse__BadRequest__Details": "The request was invalid.",
+        "ErrorResponse__Unauthorized__Title": "Unauthorized",
+        "ErrorResponse__Unauthorized__Details": "Access denied. Please provide valid authentication credentials.",
+        "ErrorResponse__NotFound__Title": "Not Found",
+        "ErrorResponse__NotFound__Details": "The requested resource was not found.",
+        "ErrorResponse__EntityNotFound__Title": "Resource Not Found",
+        "ErrorResponse__EntityNotFound__Details": "Access denied. Please provide valid authentication credentials.",
+        "ErrorResponse__BusinessLogic__Title": "Resource Not Found",
+        "ErrorResponse__DomainError__Title": "Domain Error",
+        "ErrorResponse__InternalServerError__Title": "Internal Server Error",
+        "ErrorResponse__InternalServerError__Details": "An error occurred while processing your request. Please try again later."
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "https://localhost:5000;http://localhost:4000"
+    },
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
+      "environmentVariables": {
+        "ASPNETCORE_HTTPS_PORTS": "8081",
+        "ASPNETCORE_HTTP_PORTS": "8080"
+      },
+      "publishAllPorts": true,
+      "useSSL": true
+    }
+  },
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:12271",
+      "sslPort": 44355
+    }
+  }
+}

@@ -1,0 +1,39 @@
+@VisitorApp.API_HostAddress = http://localhost:5176
+
+# Create an order
+POST {{VisitorApp.API_HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+    "customerId": "550e8400-e29b-41d4-a716-446655440000",
+    "items": [
+        {
+            "productId": "550e8400-e29b-41d4-a716-446655440001",
+            "quantity": 1
+        }
+    ]
+}
+
+###
+
+# Get an order
+GET {{VisitorApp.API_HostAddress}}/api/orders/550e8400-e29b-41d4-a716-446655440002
+Accept: application/json
+
+###
+
+# Get paginated orders for a customer
+GET {{VisitorApp.API_HostAddress}}/api/customers/550e8400-e29b-41d4-a716-446655440000/orders?page=1&pageSize=20
+Accept: application/json
+
+###
+
+# Change order status
+PATCH {{VisitorApp.API_HostAddress}}/api/orders/550e8400-e29b-41d4-a716-446655440000/status
+Content-Type: application/json
+
+{
+    "status": "Confirmed"
+}
+
+###

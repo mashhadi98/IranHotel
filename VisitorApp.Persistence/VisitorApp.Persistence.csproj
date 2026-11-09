@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<NuGetAudit>false</NuGetAudit>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Ardalis.Specification.EntityFrameworkCore" Version="9.3.1" />
+		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.14" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.14">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="OpenIddict.EntityFrameworkCore" Version="7.8.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.14" />
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+		<PackageReference Include="Pluralize.NET" Version="1.0.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\VisitorApp.Application\VisitorApp.Application.csproj" />
+		<ProjectReference Include="..\VisitorApp.Domain\VisitorApp.Domain.csproj" />
+		<ProjectReference Include="..\Shared\Shared.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Folder Include="Features\Catalog\Constants\" />
+		<Folder Include="Features\Catalog\Orders\Services\" />
+		<Folder Include="Features\Catalog\Orders\Specifications\" />
+		<Folder Include="Features\Catalog\Customers\Services\" />
+		<Folder Include="Features\Catalog\Customers\Specifications\" />
+		<Folder Include="Features\Catalog\Products\Specifications\" />
+		<Folder Include="Migrations\" />
+	</ItemGroup>
+
+</Project>

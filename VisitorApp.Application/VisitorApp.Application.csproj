@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<NuGetAudit>false</NuGetAudit>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Ardalis.Specification" Version="9.3.1" />
+		<PackageReference Include="AutoMapper" Version="16.3.0" />
+		<PackageReference Include="FluentValidation" Version="12.2.0" />
+		<PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
+		<PackageReference Include="LinqKit.Microsoft.EntityFrameworkCore" Version="10.1.1" />
+		<PackageReference Include="MediatR" Version="14.3.0" />
+		<PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.14" />
+		<PackageReference Include="OpenIddict.Abstractions" Version="7.8.0" />
+		<PackageReference Include="OpenIddict.Server.AspNetCore" Version="7.8.0" />
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\VisitorApp.Contract\VisitorApp.Contract.csproj" />
+		<ProjectReference Include="..\VisitorApp.Domain\VisitorApp.Domain.csproj" />
+		<ProjectReference Include="..\Shared\Shared.csproj" />
+	</ItemGroup>
+
+</Project>
